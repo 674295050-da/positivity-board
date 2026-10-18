@@ -1,0 +1,12 @@
+# clasp (มี scriptId ของโปรเจกต์คุณ)
+.clasp.json
+.clasprc.json
+
+# ความลับ ห้าม commit เด็ดขาด
+.env
+*.key
+secrets*
+
+# อื่นๆ
+node_modules/
+.DS_Store
