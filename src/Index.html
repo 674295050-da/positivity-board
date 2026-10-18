@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Mali', cursive; background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px); background-size: 24px 24px; }
+    .washi-tape { position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-1deg); width: 80px; height: 22px; background: rgba(255,255,255,.65); backdrop-filter: blur(2px); border-left: 2px dashed rgba(0,0,0,.08); border-right: 2px dashed rgba(0,0,0,.08); box-shadow: 0 2px 4px rgba(0,0,0,.04); z-index: 5; }
+    .sticky-note { transition: all .3s cubic-bezier(.34,1.56,.64,1); }
+    .sticky-note:hover { transform: translateY(-8px) scale(1.02) rotate(0deg) !important; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.04); z-index: 20; }
+    @keyframes floatUp { 0% { transform: translate(-50%,0) scale(.8); opacity: 1; } 50% { transform: translate(-50%,-30px) scale(1.4); opacity: .9; } 100% { transform: translate(-50%,-60px) scale(1); opacity: 0; } }
+    .floating-heart { position: fixed; pointer-events: none; animation: floatUp .8s cubic-bezier(.25,1,.5,1) forwards; z-index: 1000; font-size: 1.5rem; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-24">
+
+  <div id="toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-slate-800 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl max-w-[90%] text-center"></div>
+
+  <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3">
+    <div class="max-w-6xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl animate-bounce">📌</span>
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Positivity Board</h1>
+          <p class="text-xs text-slate-500">พื้นที่แปะโน้ตส่งกำลังใจแบบไม่เปิดเผยตัวตน</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <div id="authArea" class="flex items-center gap-2 text-xs"></div>
+        <div class="hidden md:flex gap-2 text-xs bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60">
+          <span class="bg-white px-3 py-1 rounded-xl font-semibold text-slate-600" id="totalNotesBadge">📝 0 โน้ต</span>
+          <span class="bg-white px-3 py-1 rounded-xl font-semibold text-rose-500" id="totalLikesBadge">💖 0 หัวใจ</span>
+        </div>
+        <button onclick="toggleModal(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-2xl shadow-md transition transform active:scale-95 flex items-center gap-2"><span>✨</span> แปะโน้ตใหม่</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="max-w-6xl mx-auto px-4 pt-6 pb-2">
+    <div class="flex flex-col sm:flex-row justify-between gap-3">
+      <input type="text" id="searchInput" oninput="renderBoard()" placeholder="🔍 ค้นหาชื่อผู้รับ หรือข้อความ..." class="w-full sm:w-72 p-2.5 px-4 bg-white/80 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <div id="filters" class="flex gap-2 overflow-x-auto p-1 text-xs font-semibold"></div>
+    </div>
+  </section>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="boardGrid" class="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
+      <div class="text-center py-16 text-slate-400 font-medium">กำลังโหลดกระดาษโน้ต... 💌</div>
+    </div>
+  </main>
+
+  <!-- Modal เขียนโน้ต -->
+  <div id="noteModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+      <h2 class="text-xl font-bold mb-4 text-slate-800">✍️ เขียนโน้ตส่งกำลังใจ</h2>
+      <form id="noteForm" onsubmit="submitNote(event)" class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">ถึงใคร? (ระบุชื่อ หรือเว้นว่างได้)</label>
+          <input type="text" id="toWho" maxlength="40" placeholder="เช่น เพื่อนๆ, พี่มิน, ถึงตัวเอง" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">ข้อความกำลังใจ</label>
+          <textarea id="message" rows="3" maxlength="500" placeholder="พิมพ์ข้อความดีๆ ตรงนี้..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm" required></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-2">เลือกสีโน้ต</label>
+          <div id="colorPicks" class="flex flex-wrap gap-2.5"></div>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-2">สติกเกอร์กำกับ</label>
+          <div id="emojiPicks" class="flex flex-wrap gap-2 text-xl"></div>
+        </div>
+        <p class="text-[11px] text-slate-400">โน้ตแสดงแบบไม่ระบุตัวตน แต่ระบบเก็บอีเมลผู้เขียนไว้ให้แอดมินตรวจสอบเมื่อมีการร้องเรียน</p>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="toggleModal(false)" class="px-5 py-2.5 text-slate-500 rounded-xl font-medium">ยกเลิก</button>
+          <button type="submit" id="saveBtn" class="px-6 py-2.5 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 shadow-md">แปะโน้ต</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- แผงแอดมิน -->
+  <div id="adminModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-slate-800">🛡️ แผงแอดมิน</h2>
+        <button onclick="closeAdmin()" class="text-2xl text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+      </div>
+      <div id="adminBody" class="space-y-5 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- AI Chatbot -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <button onclick="toggleChat()" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-3.5 shadow-2xl transition transform hover:scale-105 active:scale-95 flex items-center gap-2.5 border-2 border-white/20">
+      <span class="text-2xl animate-pulse">🤖</span>
+      <span class="font-bold text-sm hidden sm:inline">คุยกับน้องฮีลใจ</span>
+    </button>
+  </div>
+
+  <div id="chatWidget" class="fixed bottom-24 right-6 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-200/90 hidden z-50 overflow-hidden flex-col h-[460px]">
+    <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 p-4 text-white flex justify-between items-center">
+      <div class="flex items-center gap-2.5">
+        <span class="text-2xl bg-white/20 p-1.5 rounded-2xl">🤖</span>
+        <div>
+          <h3 class="font-bold text-sm flex items-center gap-1.5">น้องฮีลใจ AI <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span></h3>
+          <p class="text-[11px] text-indigo-200">ผู้ช่วยรับฟังและส่งพลังบวก ✨</p>
+        </div>
+      </div>
+      <button onclick="toggleChat()" class="text-white/80 hover:text-white font-bold text-2xl leading-none">&times;</button>
+    </div>
+    <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/70 text-xs"></div>
+    <form onsubmit="sendChatMessage(event)" class="p-3 bg-white border-t border-slate-100 flex gap-2">
+      <input type="text" id="chatInput" maxlength="500" placeholder="พิมพ์ข้อความคุยกับ AI..." class="flex-1 p-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-xs">
+      <button type="submit" id="chatSendBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition">ส่ง</button>
+    </form>
+  </div>
+
+  <script>
+    const BOOT = <?!= boot ?>;
+    const KEY = 'pb_token';
+    const rotations = ['rotate-1', '-rotate-1', 'rotate-2', '-rotate-2', 'rotate-0'];
+    const COLORS = [
+      ['bg-amber-100', 'text-amber-900', 'เหลือง', '💛'], ['bg-rose-100', 'text-rose-900', 'ชมพู', '🩷'],
+      ['bg-sky-100', 'text-sky-900', 'ฟ้า', '🩵'], ['bg-emerald-100', 'text-emerald-900', 'เขียว', '💚'],
+      ['bg-purple-100', 'text-purple-900', 'ม่วง', '💜'], ['bg-orange-100', 'text-orange-900', 'ส้ม', '🧡'],
+      ['bg-teal-100', 'text-teal-900', 'เขียวมิ้นท์', '🍃'], ['bg-indigo-100', 'text-indigo-900', 'คราม', '💙'],
+      ['bg-fuchsia-100', 'text-fuchsia-900', 'บานเย็น', '💖'], ['bg-slate-200', 'text-slate-900', 'เทา', '🩶']
+    ];
+    const EMOJIS = ['💖', '☕', '🌟', '🍀', '🎉', '🌈', '🌸', '☀️', '🧸', '🎈', '🌙', '🌻'];
+
+    let token = '', me = null, notesData = [], activeFilter = 'all', isModalOpen = false, pending = 0;
+    const $ = id => document.getElementById(id);
+
+    function store(v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} }
+    function readStore() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+    function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), 3500); }
+
+    window.onload = () => {
+      renderFilters();
+      renderPickers();
+      if (BOOT.token) { token = BOOT.token; store(token); } else { token = readStore(); }
+      if (BOOT.error && !token) toast(BOOT.error);
+      renderAuth();
+      addBubble('bot', 'สวัสดีครับ! วันนี้มีเรื่องสบายใจ หรือเรื่องเหนื่อยใจอะไร อยากเล่าให้น้องฮีลใจฟังไหมครับ? 💖');
+      if (token) {
+        google.script.run
+          .withSuccessHandler(r => { me = r && r.loggedIn ? r : null; if (!me) { token = ''; store(''); } renderAuth(); loadNotes(); if (me && me.banned) toast('บัญชีของคุณถูกระงับการใช้งานโดยแอดมิน'); })
+          .withFailureHandler(() => { renderAuth(); loadNotes(); })
+          .getSessionInfo(token);
+      } else {
+        loadNotes();
+      }
+      setInterval(loadNotes, 10000);
+    };
+
+    /* ---------- Auth ---------- */
+    function renderAuth() {
+      const el = $('authArea');
+      if (me) {
+        el.innerHTML = `<span class="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-2xl border border-emerald-200 font-semibold">👤 ${esc(me.name)}${me.isAdmin ? ' <b class="text-rose-500">· ADMIN</b>' : ''}${me.banned ? ' <b class="text-rose-500">· ถูกระงับ</b>' : ''}</span>
+          ${me.isAdmin ? '<button onclick="openAdmin()" class="px-3 py-1.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 font-semibold hover:bg-rose-100">🛡️ แผงแอดมิน</button>' : ''}
+          <button onclick="logout()" class="px-3 py-1.5 rounded-2xl border border-slate-200 bg-white text-slate-500 font-semibold hover:bg-slate-50">ออกจากระบบ</button>`;
+      } else if (BOOT.configured) {
+        el.innerHTML = `<a href="${esc(BOOT.loginUrl)}" target="_top" class="px-4 py-2 rounded-2xl border border-slate-300 bg-white text-slate-700 font-bold hover:bg-slate-50 shadow-sm">🔐 เข้าสู่ระบบด้วย Google</a>`;
+      } else {
+        el.innerHTML = `<button onclick="loginNotReady()" class="px-4 py-2 rounded-2xl border border-slate-300 bg-white text-slate-700 font-bold hover:bg-slate-50 shadow-sm">🔐 เข้าสู่ระบบด้วย Google</button>`;
+      }
+    }
+    function loginNotReady() {
+      const m = (BOOT.missing || []).join(', ');
+      alert('ยังเข้าสู่ระบบไม่ได้ เพราะใน Script Properties ยังขาด: ' + (m || 'ไม่ทราบ') + '\n\nตั้งค่าให้ครบตาม README แล้ว Deploy เวอร์ชันใหม่');
+    }
+    function logout() { token = ''; me = null; store(''); renderAuth(); loadNotes(); toast('ออกจากระบบแล้ว'); }
+    function requireLogin() { if (me) return true; toast('กรุณาเข้าสู่ระบบด้วย Google ก่อนนะ 🔐'); return false; }
+    function authExpired(res) {
+      if (res && res.error === 'LOGIN_REQUIRED') { token = ''; me = null; store(''); renderAuth(); toast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'); return true; }
+      return false;
+    }
+
+    /* ---------- Notes ---------- */
+    function loadNotes() {
+      if (isModalOpen || pending > 0) return;
+      google.script.run
+        .withSuccessHandler(data => { notesData = data || []; updateBadges(); renderBoard(); })
+        .withFailureHandler(err => {
+          $('boardGrid').innerHTML = `<div class="text-center py-12 px-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 font-bold text-sm">❌ โหลดข้อมูลไม่สำเร็จ<br><span class="text-xs font-normal">${esc(err.message || err)}</span></div>`;
+        })
+        .getNotes(token);
+    }
+
+    function updateBadges() {
+      $('totalNotesBadge').innerText = `📝 ${notesData.length} โน้ต`;
+      $('totalLikesBadge').innerText = `💖 ${notesData.reduce((s, n) => s + (n.likes || 0), 0)} หัวใจ`;
+    }
+
+    function renderFilters() {
+      const items = [['all', 'bg-slate-800 text-white', 'ทั้งหมด', '']].concat(COLORS.map(c => [c[0], c[0] + ' ' + c[1], c[2], c[3]]));
+      $('filters').innerHTML = items.map(i => `<button onclick="setFilter('${i[0]}')" class="px-3.5 py-2 rounded-xl ${i[1]} whitespace-nowrap transition ${activeFilter === i[0] ? 'ring-2 ring-offset-1 ring-slate-800' : 'opacity-80'}">${i[3]} ${i[2]}</button>`).join('');
+    }
+    function setFilter(c) { activeFilter = c; renderFilters(); renderBoard(); }
+
+    function cleanDate(s) {
+      if (!s) return '';
+      if (s.includes('GMT') || s.includes('Indochina')) {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+      return s;
+    }
+
+    function renderBoard() {
+      const s = $('searchInput').value.toLowerCase();
+      const list = notesData.filter(n => (n.toWho.toLowerCase().includes(s) || n.message.toLowerCase().includes(s)) && (activeFilter === 'all' || n.bgColor === activeFilter));
+      const grid = $('boardGrid');
+      if (!list.length) { grid.innerHTML = '<div class="text-center py-16 text-slate-400 font-medium">ไม่พบโน้ตในหมวดหมู่นี้ 🍃</div>'; return; }
+      grid.innerHTML = list.map((n, i) => `
+        <div class="break-inside-avoid mb-5 relative">
+          <div class="sticky-note relative ${esc(n.bgColor)} ${rotations[i % rotations.length]} ${n.hidden ? 'opacity-50 grayscale' : ''} p-5 rounded-2xl shadow-sm border border-black/5">
+            <div class="washi-tape"></div>
+            <div class="flex justify-between items-center mb-3 pt-1">
+              <span class="text-xs font-bold px-3 py-1 bg-white/70 rounded-full text-slate-700">To: ${esc(n.toWho)}${n.hidden ? ' · ซ่อนอยู่' : ''}</span>
+              <span class="text-2xl">${esc(n.emoji)}</span>
+            </div>
+            <p class="text-slate-800 leading-relaxed font-medium mb-4 whitespace-pre-line text-sm md:text-base">${esc(n.message)}</p>
+            <div class="flex justify-between items-center pt-3 border-t border-black/5 text-xs text-slate-500 font-medium">
+              <span>${esc(cleanDate(n.createdAt))}</span>
+              <div class="flex items-center gap-1.5">
+                ${n.canDelete ? `<button onclick="removeNote('${esc(n.id)}')" title="ลบโน้ต" class="bg-white/80 hover:bg-white px-2.5 py-1.5 rounded-full shadow-sm">🗑️</button>` : ''}
+                ${me && me.isAdmin ? `<button onclick="toggleHide('${esc(n.id)}', ${n.hidden ? 'false' : 'true'})" title="${n.hidden ? 'กู้คืนโน้ต' : 'ซ่อนโน้ต'}" class="bg-white/80 hover:bg-white px-2.5 py-1.5 rounded-full shadow-sm">${n.hidden ? '♻️' : '🙈'}</button>` : ''}
+                ${me && !me.isAdmin && !n.canDelete ? `<button onclick="doReport('${esc(n.id)}')" title="${n.reportedByMe ? 'รายงานแล้ว' : 'รายงานโน้ตนี้'}" class="bg-white/80 hover:bg-white px-2.5 py-1.5 rounded-full shadow-sm ${n.reportedByMe ? 'opacity-40' : ''}">🚩</button>` : ''}
+                <button onclick="addLike('${esc(n.id)}', event)" class="flex items-center gap-1.5 ${n.likedByMe ? 'bg-rose-100' : 'bg-white/80 hover:bg-white'} px-3 py-1.5 rounded-full text-rose-500 font-bold shadow-sm transition active:scale-125">${n.likedByMe ? '❤️' : '🤍'} <span>${n.likes}</span></button>
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function addLike(id, ev) {
+      if (!requireLogin()) return;
+      const note = notesData.find(n => n.id === id);
+      if (!note) return;
+      if (note.likedByMe) { toast('คุณกดหัวใจโน้ตนี้แล้ว 💖'); return; }
+      createFloatingHeart(ev.clientX, ev.clientY);
+      note.likes = (note.likes || 0) + 1;
+      note.likedByMe = true;
+      updateBadges(); renderBoard();
+      pending++;
+      const done = res => { pending--; if (!authExpired(res) && res && !res.success && res.error) toast(res.error); loadNotes(); };
+      google.script.run.withSuccessHandler(done).withFailureHandler(e => done({ error: String(e.message || e) })).likeNote(id, token);
+    }
+
+    function removeNote(id) {
+      if (!confirm('ต้องการลบโน้ตนี้ใช่ไหม?')) return;
+      google.script.run
+        .withSuccessHandler(res => { if (authExpired(res)) return; if (res && res.success) { toast('ลบโน้ตแล้ว'); loadNotes(); } else toast((res && res.error) || 'ลบไม่สำเร็จ'); })
+        .withFailureHandler(e => toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (e.message || e)))
+        .deleteNote(id, token);
+    }
+
+    function createFloatingHeart(x, y) {
+      const h = document.createElement('div');
+      h.className = 'floating-heart';
+      h.innerText = ['💖', '💗', '✨', '💕'][Math.floor(Math.random() * 4)];
+      h.style.left = x + 'px'; h.style.top = y + 'px';
+      document.body.appendChild(h);
+      setTimeout(() => h.remove(), 800);
+    }
+
+    /* ---------- รายงาน / แอดมิน ---------- */
+    let adminBans = [];
+
+    function doReport(id) {
+      if (!requireLogin()) return;
+      const note = notesData.find(n => n.id === id);
+      if (note && note.reportedByMe) { toast('คุณรายงานโน้ตนี้ไปแล้ว'); return; }
+      if (!confirm('รายงานโน้ตนี้ว่าไม่เหมาะสมใช่ไหม?')) return;
+      google.script.run
+        .withSuccessHandler(res => {
+          if (authExpired(res)) return;
+          if (res && res.success) { if (note) note.reportedByMe = true; renderBoard(); toast('ส่งรายงานแล้ว ขอบคุณที่ช่วยดูแลบอร์ด 💖'); }
+          else toast((res && res.error) || 'รายงานไม่สำเร็จ');
+        })
+        .withFailureHandler(e => toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (e.message || e)))
+        .reportNote(id, token);
+    }
+
+    function toggleHide(id, hide) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (authExpired(res)) return;
+          if (res && res.success) { toast(hide ? 'ซ่อนโน้ตแล้ว (กู้คืนได้)' : 'กู้คืนโน้ตแล้ว'); loadNotes(); }
+          else toast((res && res.error) || 'ไม่สำเร็จ');
+        })
+        .withFailureHandler(e => toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (e.message || e)))
+        .hideNote(id, hide, token);
+    }
+
+    function openAdmin() {
+      const m = $('adminModal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+      isModalOpen = true;
+      loadAdmin();
+    }
+    function closeAdmin() {
+      const m = $('adminModal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+      isModalOpen = false;
+      loadNotes();
+    }
+
+    function loadAdmin() {
+      $('adminBody').innerHTML = '<p class="text-slate-400">กำลังโหลด...</p>';
+      google.script.run
+        .withSuccessHandler(res => {
+          if (authExpired(res)) { closeAdmin(); return; }
+          if (!res || !res.success) { $('adminBody').innerHTML = `<p class="text-rose-500">${esc((res && res.error) || 'โหลดไม่สำเร็จ')}</p>`; return; }
+          renderAdmin(res);
+        })
+        .withFailureHandler(e => { $('adminBody').innerHTML = `<p class="text-rose-500">${esc(e.message || e)}</p>`; })
+        .getAdminData(token);
+    }
+
+    function renderAdmin(d) {
+      adminBans = d.bans || [];
+      const btn = 'px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100';
+      const reports = d.reports.length ? d.reports.map(r => `
+        <div class="border border-slate-200 rounded-2xl p-3 space-y-2">
+          <div class="flex justify-between text-xs text-slate-500"><span>To: ${esc(r.toWho)}${r.hidden ? ' · ซ่อนอยู่' : ''}</span><span class="text-rose-500 font-bold">🚩 ${r.count} รายงาน</span></div>
+          <p class="whitespace-pre-line">${esc(r.message)}</p>
+          <p class="text-[11px] text-slate-400 break-all">ผู้เขียน: ${esc(r.author || 'ไม่มีข้อมูล (โน้ตเก่า)')}</p>
+          <div class="flex flex-wrap gap-2 text-xs font-semibold">
+            <button onclick="adminAct('hide','${esc(r.id)}')" class="${btn}">🙈 ซ่อนโน้ต</button>
+            <button onclick="adminAct('dismiss','${esc(r.id)}')" class="${btn}">✅ ปัดทิ้ง</button>
+            <button onclick="adminAct('ban','${esc(r.id)}')" class="${btn} text-rose-600">⛔ แบนผู้เขียน</button>
+          </div>
+        </div>`).join('') : '<p class="text-slate-400">ไม่มีรายงานค้างอยู่ 🎉</p>';
+      const bans = adminBans.length ? adminBans.map((b, i) => `
+        <div class="flex justify-between items-center gap-2 border border-slate-200 rounded-xl px-3 py-2">
+          <span class="text-xs break-all">${esc(b.email)}</span>
+          <button onclick="adminAct('unban', ${i})" class="text-xs font-semibold text-emerald-600 whitespace-nowrap">ปลดแบน</button>
+        </div>`).join('') : '<p class="text-slate-400">ยังไม่มีผู้ถูกแบน</p>';
+      $('adminBody').innerHTML = `
+        <div><h3 class="font-bold mb-2">รายงานที่รอตรวจสอบ</h3><div class="space-y-3">${reports}</div></div>
+        <div><h3 class="font-bold mb-2">ผู้ถูกแบน</h3><div class="space-y-2">${bans}</div></div>`;
+    }
+
+    function adminAct(kind, val) {
+      if (kind === 'ban' && !confirm('แบนผู้เขียนโน้ตนี้ใช่ไหม? เขาจะโพสต์ กดหัวใจ รายงาน และคุยกับ AI ไม่ได้')) return;
+      const run = google.script.run
+        .withSuccessHandler(res => {
+          if (authExpired(res)) { closeAdmin(); return; }
+          toast(res && res.success ? 'ดำเนินการแล้ว' : ((res && res.error) || 'ไม่สำเร็จ'));
+          loadAdmin();
+        })
+        .withFailureHandler(e => toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (e.message || e)));
+      if (kind === 'hide') run.hideNote(val, true, token);
+      else if (kind === 'dismiss') run.dismissReports(val, token);
+      else if (kind === 'ban') run.banUser(val, token);
+      else if (kind === 'unban') run.unbanUser(adminBans[val].email, token);
+    }
+
+    /* ---------- Modal ---------- */
+    function renderPickers() {
+      $('colorPicks').innerHTML = COLORS.map((c, i) => `<label class="cursor-pointer" title="${c[2]}"><input type="radio" name="bgColor" value="${c[0]}" ${i === 0 ? 'checked' : ''} class="peer hidden"><span class="w-7 h-7 rounded-full ${c[0]} border-2 border-transparent peer-checked:border-slate-800 block transition transform peer-checked:scale-110"></span></label>`).join('');
+      $('emojiPicks').innerHTML = EMOJIS.map((e, i) => `<label class="cursor-pointer"><input type="radio" name="emoji" value="${e}" ${i === 0 ? 'checked' : ''} class="peer hidden"><span class="p-2 rounded-xl bg-slate-50 peer-checked:bg-indigo-100 block transition hover:scale-110">${e}</span></label>`).join('');
+    }
+
+    function toggleModal(show) {
+      if (show && !requireLogin()) return;
+      if (show && me && me.banned) { toast('บัญชีของคุณถูกระงับการใช้งานโดยแอดมิน'); return; }
+      isModalOpen = show;
+      const m = $('noteModal');
+      m.classList.toggle('hidden', !show);
+      m.classList.toggle('flex', show);
+    }
+
+    function submitNote(e) {
+      e.preventDefault();
+      const btn = $('saveBtn');
+      btn.innerText = 'กำลังแปะ...'; btn.disabled = true;
+      const payload = {
+        toWho: $('toWho').value,
+        message: $('message').value,
+        bgColor: document.querySelector('input[name="bgColor"]:checked').value,
+        emoji: document.querySelector('input[name="emoji"]:checked').value
+      };
+      const reset = () => { btn.innerText = 'แปะโน้ต'; btn.disabled = false; };
+      google.script.run
+        .withSuccessHandler(res => {
+          reset();
+          if (authExpired(res)) { toggleModal(false); return; }
+          if (res && res.success) { $('noteForm').reset(); toggleModal(false); loadNotes(); }
+          else toast((res && res.error) || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะ');
+        })
+        .withFailureHandler(err => { reset(); toast('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (err.message || err)); })
+        .addNote(payload, token);
+    }
+
+    /* ---------- Chat ---------- */
+    function toggleChat() {
+      const w = $('chatWidget');
+      w.classList.toggle('hidden');
+      w.classList.toggle('flex');
+    }
+
+    function addBubble(role, text, cls) {
+      const box = $('chatMessages');
+      const d = document.createElement('div');
+      d.className = role === 'user' ? 'flex justify-end' : 'flex gap-2';
+      d.innerHTML = role === 'user'
+        ? `<div class="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] leading-relaxed whitespace-pre-line">${esc(text)}</div>`
+        : `<span class="text-lg">🤖</span><div class="${cls || 'bg-white text-slate-700 border border-slate-100'} p-3 rounded-2xl rounded-tl-none max-w-[85%] leading-relaxed whitespace-pre-line">${esc(text)}</div>`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+      return d;
+    }
+
+    function sendChatMessage(e) {
+      e.preventDefault();
+      const input = $('chatInput'), btn = $('chatSendBtn');
+      const msg = input.value.trim();
+      if (!msg) return;
+      if (!me) { addBubble('bot', 'กรุณาเข้าสู่ระบบด้วย Google ก่อนคุยกับน้องฮีลใจนะครับ 🔐'); return; }
+
+      input.disabled = true; btn.disabled = true;
+      addBubble('user', msg);
+      input.value = '';
+      const loading = addBubble('bot', 'น้องฮีลใจกำลังพิมพ์... 💭', 'bg-white text-slate-400 animate-pulse border border-slate-100');
+      const finish = () => { input.disabled = false; btn.disabled = false; input.focus(); loading.remove(); };
+
+      google.script.run
+        .withSuccessHandler(res => {
+          finish();
+          if (authExpired(res)) { addBubble('bot', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่นะครับ 🔐'); return; }
+          if (res && res.success) addBubble('bot', res.reply);
+          else addBubble('bot', (res && res.error) || 'ขออภัย เกิดข้อผิดพลาดในการประมวลผล', 'bg-rose-50 text-rose-600 border border-rose-100');
+        })
+        .withFailureHandler(err => { finish(); addBubble('bot', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + (err.message || err), 'bg-rose-50 text-rose-600 border border-rose-100'); })
+        .askAI(msg, token);
+    }
+  </script>
+</body>
+</html>
